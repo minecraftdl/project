@@ -47,31 +47,25 @@ jobs:
         env:
           MY_TOKEN: ${{ secrets.LOCALTONET_TOKEN }}
         run: |
-          # Perbaikan URL download resmi Windows x64 dari Localtonet
           $zipUrl = "https://localtonet.com/download/localtonet-win-64.zip"
           $installerPath = "$env:TEMP\localtonet.zip"
           
-          Write-Host "Mengunduh Localtonet dari sumber resmi..."
+          Write-Host "Mengunduh Localtonet..."
           Invoke-WebRequest -Uri $zipUrl -OutFile $installerPath
           Expand-Archive -Path $installerPath -DestinationPath "$env:TEMP\localtonet_extracted" -Force
           
-          # Cari file .exe secara otomatis di dalam folder hasil ekstrak
           $exePath = (Get-ChildItem -Path "$env:TEMP\localtonet_extracted" -Filter "localtonet.exe" -Recurse).FullName
           
           if (-not $exePath) {
-              Write-Error "File localtonet.exe tidak ditemukan setelah ekstrak!"
+              Write-Error "File localtonet.exe tidak ditemukan!"
               exit 1
           }
           
-          Write-Host "Menjalankan Localtonet dengan AuthToken..."
-          # Menjalankan aplikasi dengan argumen --authtoken
-          Start-Process -FilePath $exePath -ArgumentList "--authtoken", "$env:MY_TOKEN" -NoNewWindow -RedirectStandardOutput "localtonet_log.txt" -RedirectStandardError "localtonet_err.txt"
+          Write-Host "Menjalankan Localtonet dengan --authtoken..."
+          # Perintah resmi menggunakan --authtoken
+          Start-Process -FilePath $exePath -ArgumentList "--authtoken", "$env:MY_TOKEN" -NoNewWindow
           
           Start-Sleep -Seconds 10
-          
-          Write-Host "=== LOG OUTPUT ==="
-          Get-Content localtonet_log.txt -ErrorAction SilentlyContinue
-          Get-Content localtonet_err.txt -ErrorAction SilentlyContinue
 
       - name: Maintain Connection
         run: |
@@ -80,7 +74,7 @@ jobs:
           Write-Host "=============================="
           Write-Host "Username : $env:RDP_USER"
           Write-Host "Password : $env:RDP_PASS"
-          Write-Host "Address  : Cek alamat IP dan Port di Dashboard Localtonet Anda (Menu 'My Tunnels')"
+          Write-Host "Address  : Cek alamat IP dan Port di Dashboard Localtonet (Menu 'My Tunnels')"
           Write-Host "==============================`n"
           
           while ($true) {
