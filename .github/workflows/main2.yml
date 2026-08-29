@@ -48,18 +48,21 @@ jobs:
           Invoke-WebRequest -Uri "https://github.com/ekzhang/bore/releases/download/v0.5.1/bore-v0.5.1-x86_64-pc-windows-msvc.zip" -OutFile "bore.zip"
           Expand-Archive -Path "bore.zip" -DestinationPath .
           
-          # Menjalankan bore untuk port forwarding 3389
-          Start-Process -FilePath .\bore.exe -ArgumentList "local 3389 --to bore.pub" -NoNewWindow -RedirectStandardOutput "bore.log" -RedirectStandardError "bore.log"
+          # Menjalankan bore dengan memisahkan output log dan error log
+          Start-Process -FilePath .\bore.exe -ArgumentList "local 3389 --to bore.pub" -NoNewWindow -RedirectStandardOutput "bore_out.log" -RedirectStandardError "bore_err.log"
           Start-Sleep -Seconds 5
           
-          # Mengambil port publik yang diberikan oleh server Bore
-          $logContent = Get-Content bore.log
+          # Mengambil port publik dari log output
+          $logContent = Get-Content bore_out.log
           if ($logContent -match "remote_port=(\d+)") {
               $port = $matches[1]
               echo "BORE_PORT=$port" >> $env:GITHUB_ENV
           } else {
-              Write-Error "Gagal mendapatkan port. Isi Log:"
-              Get-Content bore.log
+              Write-Error "Gagal mendapatkan port."
+              Write-Host "Isi Output Log:"
+              Get-Content bore_out.log
+              Write-Host "Isi Error Log:"
+              Get-Content bore_err.log
               exit 1
           }
 
