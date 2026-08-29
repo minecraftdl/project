@@ -1,4 +1,4 @@
-name: RDP - No Auth (Bore)
+name: RDP - Localtonet (Singapore)
 
 on:
   workflow_dispatch:
@@ -43,40 +43,26 @@ jobs:
           echo "RDP_USER=RDP" >> $env:GITHUB_ENV
           echo "RDP_PASS=$password" >> $env:GITHUB_ENV
 
-      - name: Start Bore Tunnel
+      - name: Start Localtonet Tunnel
         run: |
-          Invoke-WebRequest -Uri "https://github.com/ekzhang/bore/releases/download/v0.5.1/bore-v0.5.1-x86_64-pc-windows-msvc.zip" -OutFile "bore.zip"
-          Expand-Archive -Path "bore.zip" -DestinationPath .
+          Invoke-WebRequest -Uri "https://localtonet.com/download/localtonet-windows-amd64.zip" -OutFile "localtonet.zip"
+          Expand-Archive -Path "localtonet.zip" -DestinationPath .
           
-          # Menjalankan bore dengan memisahkan output log dan error log
-          Start-Process -FilePath .\bore.exe -ArgumentList "local 3389 --to bore.pub" -NoNewWindow -RedirectStandardOutput "bore_out.log" -RedirectStandardError "bore_err.log"
-          Start-Sleep -Seconds 5
-          
-          # Mengambil port publik dari log output
-          $logContent = Get-Content bore_out.log
-          if ($logContent -match "remote_port=(\d+)") {
-              $port = $matches[1]
-              echo "BORE_PORT=$port" >> $env:GITHUB_ENV
-          } else {
-              Write-Error "Gagal mendapatkan port."
-              Write-Host "Isi Output Log:"
-              Get-Content bore_out.log
-              Write-Host "Isi Error Log:"
-              Get-Content bore_err.log
-              exit 1
-          }
+          # Menjalankan Localtonet di background menggunakan token
+          Start-Process -FilePath .\localtonet.exe -ArgumentList "-token ${{ secrets.LOCALTONET_TOKEN }}" -NoNewWindow
+          Start-Sleep -Seconds 10
 
       - name: Maintain Connection
         run: |
           Write-Host "`n=============================="
           Write-Host "       RDP ACCESS INFO"
           Write-Host "=============================="
-          Write-Host "Address  : bore.pub:$env:BORE_PORT"
           Write-Host "Username : $env:RDP_USER"
           Write-Host "Password : $env:RDP_PASS"
+          Write-Host "Address  : Cek alamat IP dan Port di Dashboard Localtonet Anda (Menu 'My Tunnels')"
           Write-Host "==============================`n"
           
           while ($true) {
-              Write-Host "[$(Get-Date)] RDP Aktif - Gunakan Address di atas pada Remote Desktop"
+              Write-Host "[$(Get-Date)] RDP Aktif - Maksimal 6 Jam"
               Start-Sleep -Seconds 300
           }
