@@ -45,12 +45,18 @@ jobs:
 
       - name: Start Localtonet Tunnel
         run: |
-          Invoke-WebRequest -Uri "https://localtonet.com/download/localtonet-win-64.zip" -OutFile "localtonet.zip"
+          Invoke-WebRequest -Uri "https://localtonet.com/download/localtonet-windows-amd64.zip" -OutFile "localtonet.zip"
           Expand-Archive -Path "localtonet.zip" -DestinationPath .
           
-          # Menjalankan Localtonet di background menggunakan token
-          Start-Process -FilePath .\localtonet.exe -ArgumentList "-token ${{ secrets.LOCALTONET_TOKEN }}" -NoNewWindow
+          Write-Host "Menjalankan Localtonet..."
+          # Menjalankan Localtonet dan mencetak log-nya
+          Start-Process -FilePath .\localtonet.exe -ArgumentList "-token", "${{ secrets.LOCALTONET_TOKEN }}" -NoNewWindow -RedirectStandardOutput "localtonet_log.txt" -RedirectStandardError "localtonet_err.txt"
+          
           Start-Sleep -Seconds 10
+          
+          Write-Host "=== HASIL LOG LOCALTONET ==="
+          Get-Content localtonet_log.txt -ErrorAction SilentlyContinue
+          Get-Content localtonet_err.txt -ErrorAction SilentlyContinue
 
       - name: Maintain Connection
         run: |
