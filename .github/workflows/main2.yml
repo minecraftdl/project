@@ -45,7 +45,7 @@ jobs:
 
       - name: Start Localtonet Tunnel
         run: |
-          Invoke-WebRequest -Uri "https://localtonet.com/download/localtonet-windows-amd64.zip" -OutFile "localtonet.zip"
+          Invoke-WebRequest -Uri "https://localtonet.com/download/localtonet-win-64.zip" -OutFile "localtonet.zip"
           Expand-Archive -Path "localtonet.zip" -DestinationPath .
           
           Write-Host "Menjalankan Localtonet..."
