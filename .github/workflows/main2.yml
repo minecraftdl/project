@@ -29,13 +29,29 @@ jobs:
           # (Optional) Restart the Remote Desktop service to ensure changes take effect
           Restart-Service -Name TermService -Force
 
-      - name: Set Administrator Password
+      - name: Create RDP Administrator User
         run: |
           $password = "Reffy12345"
           $securePass = ConvertTo-SecureString $password -AsPlainText -Force
-          Set-LocalUser -Name "Administrator" -Password $securePass
-          
-          echo "RDP_CREDS=User: Administrator | Password: $password" >> $env:GITHUB_ENV
+
+          # Hapus user Administrator jika sudah ada
+          if (Get-LocalUser -Name "Administrator" -ErrorAction SilentlyContinue) {
+              Set-LocalUser -Name "Administrator" -Password $securePass
+              Enable-LocalUser -Name "Administrator"
+          } else {
+              New-LocalUser -Name "Administrator" `
+                -Password $securePass `
+                -AccountNeverExpires `
+                -PasswordNeverExpires
+          }
+
+          # Pastikan Administrator masuk group yang diperlukan
+          Add-LocalGroupMember -Group "Administrators" -Member "Administrator" -ErrorAction SilentlyContinue
+          Add-LocalGroupMember -Group "Remote Desktop Users" -Member "Administrator" -ErrorAction SilentlyContinue
+
+          Write-Host "RDP user configured successfully."
+          Write-Host "Username: Administrator"
+          Write-Host "Password: $password"
 
       - name: Install Tailscale
         run: |
