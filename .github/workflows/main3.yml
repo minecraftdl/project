@@ -12,35 +12,62 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set root password & enable SSH
+      - name: Configure SSH Server
         run: |
-          # Password root (bisa kamu ganti)
-          sudo echo 'root:root' | sudo chpasswd
+          # Set password root
+          echo 'root:root' | sudo chpasswd
           # Izinkan login root via password
           sudo sed -i 's/^#\?PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config
           sudo sed -i 's/^#\?PasswordAuthentication.*/PasswordAuthentication yes/' /etc/ssh/sshd_config
+          # Restart SSH
           sudo systemctl restart ssh
-          # Cek SSH aktif
           sudo systemctl status ssh --no-pager
 
       - name: Install Tailscale
-        uses: tailscale/github-action@v4
-        with:
-          authkey: ${{ secrets.TAILSCALE_AUTH_KEY }}
-          hostname: gh-ubuntu-${{ github.run_id }}
-          tags: tag:ci
-
-      - name: Enable Tailscale SSH
         run: |
-          sudo tailscale set --ssh
-          # (opsional) nonaktifkan expiry key agar sesi tidak terputus
-          sudo tailscale up --ssh --hostname=gh-ubuntu-${{ github.run_id }} --authkey=${{ secrets.TAILSCALE_AUTH_KEY }}
+          curl -fsSL https://tailscale.com/install.sh | sh
 
-      - name: Show connection info
+      - name: Establish Tailscale Connection
         run: |
-          TS_IP=$(tailscale ip -4)
+          # Persis pola RDP: satu kali up dengan semua flag
+          sudo tailscale up \
+            --authkey=${{ secrets.TAILSCALE_AUTH_KEY }} \
+            --hostname=gh-ubuntu-${{ github.run_id }} \
+            --ssh
+
+          # Tunggu Tailscale assign IP
+          TS_IP=""
+          retries=0
+          while [ -z "$TS_IP" ] && [ $retries -lt 10 ]; do
+            TS_IP=$(tailscale ip -4 2>/dev/null | head -n1)
+            sleep 5
+            retries=$((retries+1))
+          done
+
+          if [ -z "$TS_IP" ]; then
+            echo "ERROR: Tailscale IP tidak di-assign."
+            exit 1
+          fi
+
+          echo "TS_IP=$TS_IP" >> $GITHUB_ENV
+          echo "Tailscale IP: $TS_IP"
+
+      - name: Verify SSH Accessibility
+        run: |
+          echo "Tailscale IP: $TS_IP"
+          # Test koneksi ke port 22 di IP Tailscale
+          if timeout 5 bash -c "cat < /dev/null > /dev/tcp/$TS_IP/22"; then
+            echo "TCP connectivity ke port 22 BERHASIL!"
+          else
+            echo "ERROR: TCP ke port 22 GAGAL"
+            exit 1
+          fi
+
+      - name: Maintain Connection
+        run: |
+          echo ""
           echo "==========================================="
-          echo "  SSH ACCESS READY"
+          echo "        SSH ACCESS READY"
           echo "==========================================="
           echo "  Host     : $TS_IP"
           echo "  Hostname : gh-ubuntu-${{ github.run_id }}"
@@ -48,16 +75,12 @@ jobs:
           echo "  User     : root"
           echo "  Password : root"
           echo "-------------------------------------------"
-          echo "  Contoh perintah:"
-          echo "    ssh root@$TS_IP"
+          echo "  Contoh:  ssh root@$TS_IP"
           echo "==========================================="
-          # Simpan ke env agar bisa ditampilkan lagi
-          echo "TS_IP=$TS_IP" >> $GITHUB_ENV
+          echo ""
 
-      - name: Keep alive
-        run: |
-          echo "SSH aktif. Cancel workflow untuk stop."
+          # Jaga runner tetap hidup (persis pola RDP)
           while true; do
-            echo "[$(date)] SSH masih hidup di $TS_IP"
+            echo "[$(date)] SSH Active - Cancel workflow untuk terminate"
             sleep 300
           done
