@@ -1,0 +1,63 @@
+name: Ubuntu SSH via Tailscale
+
+on:
+  workflow_dispatch:
+
+jobs:
+  ubuntu-ssh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set root password & enable SSH
+        run: |
+          # Password root (bisa kamu ganti)
+          sudo echo 'root:root' | sudo chpasswd
+          # Izinkan login root via password
+          sudo sed -i 's/^#\?PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config
+          sudo sed -i 's/^#\?PasswordAuthentication.*/PasswordAuthentication yes/' /etc/ssh/sshd_config
+          sudo systemctl restart ssh
+          # Cek SSH aktif
+          sudo systemctl status ssh --no-pager
+
+      - name: Install Tailscale
+        uses: tailscale/github-action@v4
+        with:
+          authkey: ${{ secrets.TAILSCALE_AUTH_KEY }}
+          hostname: gh-ubuntu-${{ github.run_id }}
+          tags: tag:ci
+
+      - name: Enable Tailscale SSH
+        run: |
+          sudo tailscale set --ssh
+          # (opsional) nonaktifkan expiry key agar sesi tidak terputus
+          sudo tailscale up --ssh --hostname=gh-ubuntu-${{ github.run_id }} --authkey=${{ secrets.TAILSCALE_AUTH_KEY }}
+
+      - name: Show connection info
+        run: |
+          TS_IP=$(tailscale ip -4)
+          echo "==========================================="
+          echo "  SSH ACCESS READY"
+          echo "==========================================="
+          echo "  Host     : $TS_IP"
+          echo "  Hostname : gh-ubuntu-${{ github.run_id }}"
+          echo "  Port     : 22"
+          echo "  User     : root"
+          echo "  Password : root"
+          echo "-------------------------------------------"
+          echo "  Contoh perintah:"
+          echo "    ssh root@$TS_IP"
+          echo "==========================================="
+          # Simpan ke env agar bisa ditampilkan lagi
+          echo "TS_IP=$TS_IP" >> $GITHUB_ENV
+
+      - name: Keep alive
+        run: |
+          echo "SSH aktif. Cancel workflow untuk stop."
+          while true; do
+            echo "[$(date)] SSH masih hidup di $TS_IP"
+            sleep 300
+          done
